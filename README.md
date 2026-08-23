@@ -59,8 +59,9 @@ RDP Client Control"** (latest version), then build again.
 - [x] Import from `.rdp` files (both clients)
 - [x] Search / filter the connection list (both clients)
 - [x] Multi-monitor ("use all monitors") option
+- [x] Connection groups / folders
+- [x] CI builds signed-less binaries for Windows + macOS on every push
 - [ ] Embed FreeRDP in macOS tabs (match the Windows in-app experience)
-- [ ] Connection groups / folders
 
 ## License
 

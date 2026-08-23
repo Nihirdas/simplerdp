@@ -9,15 +9,16 @@ final class EditDialog: NSObject {
     private let hostField = NSTextField()
     private let portField = NSTextField()
     private let userField = NSTextField()
+    private let groupCombo = NSComboBox()
     private let screenPopup = NSPopUpButton()
     private let widthField = NSTextField()
     private let heightField = NSTextField()
     private let multimon = NSButton(checkboxWithTitle: "Use all monitors", target: nil, action: nil)
 
-    init(connection: Connection, isNew: Bool) {
+    init(connection: Connection, isNew: Bool, groups: [String]) {
         self.connection = connection
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 440, height: 412),
+            contentRect: NSRect(x: 0, y: 0, width: 440, height: 448),
             styleMask: [.titled], backing: .buffered, defer: false)
         super.init()
 
@@ -27,6 +28,10 @@ final class EditDialog: NSObject {
         hostField.stringValue = connection.host
         portField.stringValue = String(connection.port)
         userField.stringValue = connection.username
+        groupCombo.isEditable = true
+        groupCombo.completes = true
+        groupCombo.addItems(withObjectValues: groups)
+        groupCombo.stringValue = connection.group
         screenPopup.addItems(withTitles: ["Fit to window", "Fixed size"])
         screenPopup.selectItem(at: connection.screen.mode == "fixed" ? 1 : 0)
         widthField.stringValue = String(connection.screen.width)
@@ -36,6 +41,7 @@ final class EditDialog: NSObject {
         setWidth(nameField, 250)
         setWidth(hostField, 250)
         setWidth(userField, 250)
+        setWidth(groupCombo, 250)
         setWidth(portField, 90)
         setWidth(widthField, 90)
         setWidth(heightField, 90)
@@ -45,6 +51,7 @@ final class EditDialog: NSObject {
             [label("Host / IP"), hostField],
             [label("Port"), portField],
             [label("Username"), userField],
+            [label("Group"), groupCombo],
             [label("Screen"), screenPopup],
             [label("Width"), widthField],
             [label("Height"), heightField],
@@ -90,6 +97,7 @@ final class EditDialog: NSObject {
         connection.host = hostField.stringValue.trimmingCharacters(in: .whitespaces)
         connection.port = Int(portField.stringValue) ?? 3389
         connection.username = userField.stringValue.trimmingCharacters(in: .whitespaces)
+        connection.group = groupCombo.stringValue.trimmingCharacters(in: .whitespaces)
         connection.screen.mode = screenPopup.indexOfSelectedItem == 1 ? "fixed" : "fit"
         connection.screen.width = Int(widthField.stringValue) ?? 1280
         connection.screen.height = Int(heightField.stringValue) ?? 800
@@ -113,7 +121,7 @@ final class EditDialog: NSObject {
         NSTextField(labelWithString: text)
     }
 
-    private func setWidth(_ field: NSTextField, _ width: CGFloat) {
+    private func setWidth(_ field: NSView, _ width: CGFloat) {
         field.translatesAutoresizingMaskIntoConstraints = false
         field.widthAnchor.constraint(equalToConstant: width).isActive = true
     }

@@ -1,10 +1,15 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// Main window: a searchable sidebar list of connections + a detail pane with Connect.
+/// Main window: a searchable, grouped sidebar list + a detail pane with Connect.
 final class MainWindowController: NSWindowController, NSTableViewDataSource, NSTableViewDelegate {
+    private enum Row {
+        case header(String)
+        case connection(Connection)
+    }
+
     private let store = ConnectionStore()
-    private var rows: [Connection] = []   // currently displayed (filtered) subset
+    private var displayRows: [Row] = []
 
     private let searchField = NSSearchField()
     private let table = NSTableView()
@@ -41,6 +46,7 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
         table.headerView = nil
         table.rowHeight = 46
         table.usesAutomaticRowHeights = false
+        table.floatsGroupRows = false
         table.style = .inset
         table.dataSource = self
         table.delegate = self
@@ -152,22 +158,48 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
 
     // MARK: - table data
 
-    func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
+    func numberOfRows(in tableView: NSTableView) -> Int { displayRows.count }
+
+    func tableView(_ tableView: NSTableView, isGroupRow row: Int) -> Bool {
+        if case .header = displayRows[row] { return true }
+        return false
+    }
+
+    func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
+        if case .header = displayRows[row] { return false }
+        return true
+    }
+
+    func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+        if case .header = displayRows[row] { return 24 }
+        return 46
+    }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        let c = rows[row]
-        let name = NSTextField(labelWithString: c.displayName)
-        name.font = .boldSystemFont(ofSize: 13)
-        let sub = NSTextField(labelWithString: c.subtitle)
-        sub.font = .systemFont(ofSize: 11)
-        sub.textColor = .secondaryLabelColor
+        switch displayRows[row] {
+        case .header(let title):
+            let label = NSTextField(labelWithString: title.uppercased())
+            label.font = .systemFont(ofSize: 11, weight: .semibold)
+            label.textColor = .secondaryLabelColor
+            let wrap = NSStackView(views: [label])
+            wrap.orientation = .horizontal
+            wrap.edgeInsets = NSEdgeInsets(top: 2, left: 6, bottom: 2, right: 6)
+            return wrap
 
-        let stack = NSStackView(views: [name, sub])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 2
-        stack.edgeInsets = NSEdgeInsets(top: 4, left: 6, bottom: 4, right: 6)
-        return stack
+        case .connection(let c):
+            let name = NSTextField(labelWithString: c.displayName)
+            name.font = .boldSystemFont(ofSize: 13)
+            let sub = NSTextField(labelWithString: c.subtitle)
+            sub.font = .systemFont(ofSize: 11)
+            sub.textColor = .secondaryLabelColor
+
+            let stack = NSStackView(views: [name, sub])
+            stack.orientation = .vertical
+            stack.alignment = .leading
+            stack.spacing = 2
+            stack.edgeInsets = NSEdgeInsets(top: 4, left: 6, bottom: 4, right: 6)
+            return stack
+        }
     }
 
     func tableViewSelectionDidChange(_ notification: Notification) {
@@ -178,28 +210,64 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
 
     private func selectedConnection() -> Connection? {
         let row = table.selectedRow
-        guard row >= 0, row < rows.count else { return nil }
-        return rows[row]
+        guard row >= 0, row < displayRows.count else { return nil }
+        if case .connection(let c) = displayRows[row] { return c }
+        return nil
+    }
+
+    private func existingGroups() -> [String] {
+        Array(Set(store.connections.map { $0.group }.filter { !$0.isEmpty }))
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
     private func applyFilter() {
         let q = searchField.stringValue.trimmingCharacters(in: .whitespaces).lowercased()
-        if q.isEmpty {
-            rows = store.connections
-        } else {
-            rows = store.connections.filter {
-                $0.displayName.lowercased().contains(q)
-                    || $0.host.lowercased().contains(q)
-                    || $0.username.lowercased().contains(q)
-            }
+        let matches: (Connection) -> Bool = { c in
+            q.isEmpty
+                || c.displayName.lowercased().contains(q)
+                || c.host.lowercased().contains(q)
+                || c.username.lowercased().contains(q)
+                || c.group.lowercased().contains(q)
         }
+        let filtered = store.connections.filter(matches)
+
+        // Flat list while searching.
+        if !q.isEmpty {
+            displayRows = filtered.map { .connection($0) }
+            return
+        }
+
+        let named = Set(filtered.map { $0.group }.filter { !$0.isEmpty })
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+
+        if named.isEmpty {
+            displayRows = filtered.map { .connection($0) }
+            return
+        }
+
+        var out: [Row] = []
+        for g in named {
+            out.append(.header(g))
+            out.append(contentsOf: filtered.filter { $0.group == g }.map { .connection($0) })
+        }
+        let ungrouped = filtered.filter { $0.group.isEmpty }
+        if !ungrouped.isEmpty {
+            out.append(.header("Ungrouped"))
+            out.append(contentsOf: ungrouped.map { .connection($0) })
+        }
+        displayRows = out
     }
 
     private func reload(select id: String?) {
         applyFilter()
         table.reloadData()
-        if let id, let idx = rows.firstIndex(where: { $0.id == id }) {
-            table.selectRowIndexes(IndexSet(integer: idx), byExtendingSelection: false)
+        if let id {
+            for (i, row) in displayRows.enumerated() {
+                if case .connection(let c) = row, c.id == id {
+                    table.selectRowIndexes(IndexSet(integer: i), byExtendingSelection: false)
+                    break
+                }
+            }
         }
         updateDetail()
     }
@@ -223,7 +291,7 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
     }
 
     @objc private func newConnection() {
-        if let c = EditDialog(connection: Connection(), isNew: true).run() {
+        if let c = EditDialog(connection: Connection(), isNew: true, groups: existingGroups()).run() {
             store.add(c)
             reload(select: c.id)
         }
@@ -249,7 +317,7 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
 
     @objc private func editSelected() {
         guard let c = selectedConnection() else { return }
-        if let updated = EditDialog(connection: c, isNew: false).run() {
+        if let updated = EditDialog(connection: c, isNew: false, groups: existingGroups()).run() {
             store.update(updated)
             reload(select: updated.id)
         }

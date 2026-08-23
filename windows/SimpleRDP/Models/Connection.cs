@@ -14,6 +14,10 @@ public class Connection
     public string Host { get; set; } = string.Empty;
     public int Port { get; set; } = 3389;
     public string Username { get; set; } = string.Empty;
+
+    /// <summary>Optional folder/group name for the sidebar. Empty = ungrouped.</summary>
+    public string Group { get; set; } = string.Empty;
+
     public ScreenSettings Screen { get; set; } = new();
     public bool FullScreen { get; set; }
 
@@ -36,6 +40,7 @@ public class Connection
         Host = Host,
         Port = Port,
         Username = Username,
+        Group = Group,
         FullScreen = FullScreen,
         UseAllMonitors = UseAllMonitors,
         PasswordEnc = PasswordEnc,

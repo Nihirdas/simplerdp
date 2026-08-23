@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Linq;
 using System.Windows.Forms;
 using SimpleRDP.Models;
 using SimpleRDP.Services;
@@ -8,6 +9,14 @@ namespace SimpleRDP.UI;
 
 public class MainForm : Form
 {
+    /// <summary>A non-selectable header row shown between groups in the list.</summary>
+    private sealed class GroupHeader
+    {
+        public string Title { get; }
+        public GroupHeader(string title) => Title = title;
+        public override string ToString() => Title;
+    }
+
     private readonly ConnectionStore _store = new();
     private readonly TextBox _search = new()
     {
@@ -19,8 +28,7 @@ public class MainForm : Form
     {
         Dock = DockStyle.Fill,
         IntegralHeight = false,
-        DrawMode = DrawMode.OwnerDrawFixed,
-        ItemHeight = 44
+        DrawMode = DrawMode.OwnerDrawVariable
     };
     private readonly TabControl _tabs = new()
     {
@@ -67,6 +75,7 @@ public class MainForm : Form
 
         _list.DoubleClick += (_, _) => ConnectSelected();
         _list.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) ConnectSelected(); };
+        _list.MeasureItem += List_MeasureItem;
         _list.DrawItem += List_DrawItem;
         _list.MouseDown += List_MouseDown;
         _list.ContextMenuStrip = BuildListMenu();
@@ -123,15 +132,55 @@ public class MainForm : Form
         return b;
     }
 
+    private string[] DistinctGroups() =>
+        _store.Connections.Select(c => c.Group)
+            .Where(g => !string.IsNullOrEmpty(g))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
     private void RefreshList()
     {
         var selectedId = (_list.SelectedItem as Connection)?.Id;
         var q = _search.Text.Trim();
+        var filtered = _store.Connections.Where(c => Matches(c, q)).ToList();
 
         _list.BeginUpdate();
         _list.Items.Clear();
-        foreach (var c in _store.Connections)
-            if (Matches(c, q)) _list.Items.Add(c);
+
+        if (q.Length > 0)
+        {
+            foreach (var c in filtered) _list.Items.Add(c);
+        }
+        else
+        {
+            var named = filtered.Select(c => c.Group)
+                .Where(g => !string.IsNullOrEmpty(g))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => g, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (named.Count == 0)
+            {
+                foreach (var c in filtered) _list.Items.Add(c);
+            }
+            else
+            {
+                foreach (var grp in named)
+                {
+                    _list.Items.Add(new GroupHeader(grp));
+                    foreach (var c in filtered.Where(c => string.Equals(c.Group, grp, StringComparison.OrdinalIgnoreCase)))
+                        _list.Items.Add(c);
+                }
+                var ungrouped = filtered.Where(c => string.IsNullOrEmpty(c.Group)).ToList();
+                if (ungrouped.Count > 0)
+                {
+                    _list.Items.Add(new GroupHeader("Ungrouped"));
+                    foreach (var c in ungrouped) _list.Items.Add(c);
+                }
+            }
+        }
+
         _list.EndUpdate();
 
         if (selectedId == null) return;
@@ -150,20 +199,38 @@ public class MainForm : Form
         if (q.Length == 0) return true;
         return c.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
             || c.Host.Contains(q, StringComparison.OrdinalIgnoreCase)
-            || c.Username.Contains(q, StringComparison.OrdinalIgnoreCase);
+            || c.Username.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || c.Group.Contains(q, StringComparison.OrdinalIgnoreCase);
     }
 
     // ---- sidebar drawing ----
 
+    private void List_MeasureItem(object? sender, MeasureItemEventArgs e)
+    {
+        e.ItemHeight = (e.Index >= 0 && _list.Items[e.Index] is GroupHeader) ? 24 : 44;
+    }
+
     private void List_DrawItem(object? sender, DrawItemEventArgs e)
     {
-        if (e.Index < 0 || _list.Items[e.Index] is not Connection c) return;
-
-        e.DrawBackground();
-        var selected = (e.State & DrawItemState.Selected) != 0;
+        if (e.Index < 0) return;
+        var item = _list.Items[e.Index];
         var g = e.Graphics;
         var r = e.Bounds;
 
+        if (item is GroupHeader gh)
+        {
+            using (var bg = new SolidBrush(SystemColors.Control)) g.FillRectangle(bg, r);
+            using var hf = new Font(Font.FontFamily, 8.5f, FontStyle.Bold);
+            TextRenderer.DrawText(g, gh.Title.ToUpperInvariant(), hf,
+                new Rectangle(r.Left + 8, r.Top, r.Width - 12, r.Height), Color.Gray,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+            return;
+        }
+
+        if (item is not Connection c) return;
+
+        e.DrawBackground();
+        var selected = (e.State & DrawItemState.Selected) != 0;
         var nameColor = selected ? SystemColors.HighlightText : SystemColors.ControlText;
         var subColor = selected ? SystemColors.HighlightText : Color.Gray;
 
@@ -274,7 +341,7 @@ public class MainForm : Form
 
     private void NewConnection()
     {
-        var c = ConnectionDialog.Edit(this, null);
+        var c = ConnectionDialog.Edit(this, null, DistinctGroups());
         if (c == null) return;
         _store.Add(c);
         RefreshList();
@@ -310,7 +377,7 @@ public class MainForm : Form
     private void EditSelected()
     {
         if (_list.SelectedItem is not Connection sel) return;
-        var c = ConnectionDialog.Edit(this, sel);
+        var c = ConnectionDialog.Edit(this, sel, DistinctGroups());
         if (c == null) return;
         _store.Update(c);
         RefreshList();

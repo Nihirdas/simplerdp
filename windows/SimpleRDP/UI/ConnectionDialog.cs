@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using SimpleRDP.Models;
 
@@ -11,6 +12,7 @@ public class ConnectionDialog : Form
     private readonly TextBox _host = new();
     private readonly NumericUpDown _port = new() { Minimum = 1, Maximum = 65535, Value = 3389 };
     private readonly TextBox _user = new();
+    private readonly ComboBox _group = new() { DropDownStyle = ComboBoxStyle.DropDown };
     private readonly ComboBox _mode = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly NumericUpDown _width = new() { Minimum = 640, Maximum = 7680, Value = 1280, Increment = 10 };
     private readonly NumericUpDown _height = new() { Minimum = 480, Maximum = 4320, Value = 800, Increment = 10 };
@@ -18,7 +20,7 @@ public class ConnectionDialog : Form
 
     private readonly Connection _result;
 
-    private ConnectionDialog(Connection? existing)
+    private ConnectionDialog(Connection? existing, IEnumerable<string> groups)
     {
         _result = existing?.Clone() ?? new Connection();
 
@@ -27,9 +29,10 @@ public class ConnectionDialog : Form
         StartPosition = FormStartPosition.CenterParent;
         MaximizeBox = false;
         MinimizeBox = false;
-        ClientSize = new Size(400, 350);
+        ClientSize = new Size(400, 384);
 
         _mode.Items.AddRange(new object[] { "Fit to window", "Fixed size" });
+        _group.Items.AddRange(groups.ToArray());
 
         var layout = new TableLayoutPanel
         {
@@ -44,6 +47,7 @@ public class ConnectionDialog : Form
         AddRow(layout, "Host / IP", _host);
         AddRow(layout, "Port", _port);
         AddRow(layout, "Username", _user);
+        AddRow(layout, "Group", _group);
         AddRow(layout, "Screen", _mode);
         AddRow(layout, "Width", _width);
         AddRow(layout, "Height", _height);
@@ -54,6 +58,7 @@ public class ConnectionDialog : Form
         _host.Text = _result.Host;
         _port.Value = Clamp(_result.Port, 1, 65535);
         _user.Text = _result.Username;
+        _group.Text = _result.Group;
         _mode.SelectedIndex = _result.Screen.Mode == "fixed" ? 1 : 0;
         _width.Value = Clamp(_result.Screen.Width, 640, 7680);
         _height.Value = Clamp(_result.Screen.Height, 480, 4320);
@@ -106,6 +111,7 @@ public class ConnectionDialog : Form
         _result.Host = _host.Text.Trim();
         _result.Port = (int)_port.Value;
         _result.Username = _user.Text.Trim();
+        _result.Group = _group.Text.Trim();
         _result.Screen.Mode = _mode.SelectedIndex == 1 ? "fixed" : "fit";
         _result.Screen.Width = (int)_width.Value;
         _result.Screen.Height = (int)_height.Value;
@@ -113,9 +119,9 @@ public class ConnectionDialog : Form
     }
 
     /// <summary>Returns the edited connection, or null if cancelled.</summary>
-    public static Connection? Edit(IWin32Window owner, Connection? existing)
+    public static Connection? Edit(IWin32Window owner, Connection? existing, IEnumerable<string> groups)
     {
-        using var dlg = new ConnectionDialog(existing);
+        using var dlg = new ConnectionDialog(existing, groups);
         dlg.FormClosing += (_, e) =>
         {
             if (dlg.DialogResult != DialogResult.OK) return;

@@ -13,6 +13,7 @@ struct Connection: Codable, Identifiable, Hashable {
     var host: String = ""
     var port: Int = 3389
     var username: String = ""
+    var group: String = ""
     var screen: ScreenSettings = .init()
     var fullScreen: Bool = false
     var useAllMonitors: Bool = false

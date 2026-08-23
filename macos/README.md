@@ -51,6 +51,6 @@ preserved on save but not used here.
 ## Roadmap
 
 - [x] Manage connections + connect (own FreeRDP window per session)
-- [x] Import from `.rdp` files, search/filter, multi-monitor option
+- [x] Import from `.rdp` files, search/filter, multi-monitor, connection groups
 - [ ] Embed FreeRDP in in-app tabs (match the Windows experience)
 - [ ] Ship a signed `.app`
