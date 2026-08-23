@@ -82,7 +82,7 @@ public class MainForm : Form
 
         var bar = new FlowLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(4) };
         bar.Controls.Add(MakeButton("New", (_, _) => NewConnection()));
-        bar.Controls.Add(MakeButton("Import", (_, _) => ImportRdp()));
+        bar.Controls.Add(MakeButton("Import", (_, _) => ImportConnections()));
         bar.Controls.Add(MakeButton("Edit", (_, _) => EditSelected()));
         bar.Controls.Add(MakeButton("Delete", (_, _) => DeleteSelected()));
         bar.Controls.Add(MakeButton("Connect", (_, _) => ConnectSelected()));
@@ -347,12 +347,13 @@ public class MainForm : Form
         RefreshList();
     }
 
-    private void ImportRdp()
+    private void ImportConnections()
     {
         using var dlg = new OpenFileDialog
         {
-            Title = "Import .rdp files",
-            Filter = "Remote Desktop files (*.rdp)|*.rdp|All files (*.*)|*.*",
+            Title = "Import connections",
+            Filter = "All supported (*.rdp;*.rdg;*.xml)|*.rdp;*.rdg;*.xml|"
+                     + "Remote Desktop (*.rdp)|*.rdp|RDCMan (*.rdg)|*.rdg|mRemoteNG (*.xml)|*.xml|All files (*.*)|*.*",
             Multiselect = true
         };
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
@@ -362,8 +363,11 @@ public class MainForm : Form
         {
             try
             {
-                _store.Add(RdpFileImporter.Parse(path));
-                imported++;
+                foreach (var c in ConnectionImporter.Import(path))
+                {
+                    _store.Add(c);
+                    imported++;
+                }
             }
             catch (Exception ex)
             {

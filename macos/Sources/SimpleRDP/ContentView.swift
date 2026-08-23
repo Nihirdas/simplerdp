@@ -67,7 +67,7 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
 
         let bar = NSStackView(views: [
             button("New", #selector(newConnection)),
-            button("Import", #selector(importRdp)),
+            button("Import", #selector(importConnections)),
             button("Edit", #selector(editSelected)),
             button("Delete", #selector(deleteSelected)),
             button("Connect", #selector(connectSelected)),
@@ -297,17 +297,17 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
         }
     }
 
-    @objc private func importRdp() {
+    @objc private func importConnections() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = true
-        if let rdp = UTType(filenameExtension: "rdp") { panel.allowedContentTypes = [rdp] }
+        panel.allowedContentTypes = ["rdp", "rdg", "xml"].compactMap { UTType(filenameExtension: $0) }
         guard panel.runModal() == .OK else { return }
 
         var last: String?
         for url in panel.urls {
-            if let c = RdpImport.parse(contentsOf: url) {
+            for c in ConnectionImporter.import(contentsOf: url) {
                 store.add(c)
                 last = c.id
             }
