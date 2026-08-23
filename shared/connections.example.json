@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "connections": [
+    {
+      "id": "3f2a1b4c5d6e7f8091a2b3c4d5e6f701",
+      "name": "web-01",
+      "host": "192.168.1.20",
+      "port": 3389,
+      "username": "administrator",
+      "screen": { "mode": "fit", "width": 1920, "height": 1080 },
+      "fullScreen": false
+    },
+    {
+      "id": "9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c40",
+      "name": "jump-host",
+      "host": "10.0.0.7",
+      "port": 3389,
+      "username": "",
+      "screen": { "mode": "fixed", "width": 1280, "height": 800 },
+      "fullScreen": false
+    }
+  ]
+}

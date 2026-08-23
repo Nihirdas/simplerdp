@@ -1,0 +1,19 @@
+# .NET
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# Generated COM interop
+AxInterop.*.dll
+Interop.*.dll
+
+# Swift / SPM
+.build/
+Package.resolved
+
+# macOS
+.DS_Store
+DerivedData/
+*.xcuserstate
