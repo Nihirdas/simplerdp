@@ -14,6 +14,7 @@ public class ConnectionDialog : Form
     private readonly ComboBox _mode = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly NumericUpDown _width = new() { Minimum = 640, Maximum = 7680, Value = 1280, Increment = 10 };
     private readonly NumericUpDown _height = new() { Minimum = 480, Maximum = 4320, Value = 800, Increment = 10 };
+    private readonly CheckBox _multimon = new() { Text = "Use all monitors", Dock = DockStyle.Fill };
 
     private readonly Connection _result;
 
@@ -26,7 +27,7 @@ public class ConnectionDialog : Form
         StartPosition = FormStartPosition.CenterParent;
         MaximizeBox = false;
         MinimizeBox = false;
-        ClientSize = new Size(400, 316);
+        ClientSize = new Size(400, 350);
 
         _mode.Items.AddRange(new object[] { "Fit to window", "Fixed size" });
 
@@ -46,6 +47,7 @@ public class ConnectionDialog : Form
         AddRow(layout, "Screen", _mode);
         AddRow(layout, "Width", _width);
         AddRow(layout, "Height", _height);
+        AddRow(layout, "Monitors", _multimon);
 
         // populate
         _name.Text = _result.Name;
@@ -55,6 +57,7 @@ public class ConnectionDialog : Form
         _mode.SelectedIndex = _result.Screen.Mode == "fixed" ? 1 : 0;
         _width.Value = Clamp(_result.Screen.Width, 640, 7680);
         _height.Value = Clamp(_result.Screen.Height, 480, 4320);
+        _multimon.Checked = _result.UseAllMonitors;
         _mode.SelectedIndexChanged += (_, _) => UpdateSizeEnabled();
         UpdateSizeEnabled();
 
@@ -106,6 +109,7 @@ public class ConnectionDialog : Form
         _result.Screen.Mode = _mode.SelectedIndex == 1 ? "fixed" : "fit";
         _result.Screen.Width = (int)_width.Value;
         _result.Screen.Height = (int)_height.Value;
+        _result.UseAllMonitors = _multimon.Checked;
     }
 
     /// <summary>Returns the edited connection, or null if cancelled.</summary>

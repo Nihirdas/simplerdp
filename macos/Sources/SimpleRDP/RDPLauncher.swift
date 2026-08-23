@@ -26,6 +26,7 @@ enum RDPLauncher {
         var args = ["/v:\(c.host):\(c.port)", "/cert:ignore", "+clipboard", "/dynamic-resolution"]
         if !c.username.isEmpty { args.append("/u:\(c.username)") }
         if let p = password, !p.isEmpty { args.append("/p:\(p)") }
+        if c.useAllMonitors { args.append("/multimon") }
         if c.screen.mode == "fixed" {
             args.append("/size:\(c.screen.width)x\(c.screen.height)")
         } else {

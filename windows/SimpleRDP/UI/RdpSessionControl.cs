@@ -68,7 +68,8 @@ public class RdpSessionControl : UserControl
             if (!string.IsNullOrWhiteSpace(_conn.Username)) _rdp.UserName = _conn.Username;
             if (!string.IsNullOrEmpty(_password)) _rdp.AdvancedSettings9.ClearTextPassword = _password;
 
-            _rdp.AdvancedSettings9.SmartSizing = true;
+            _rdp.AdvancedSettings9.SmartSizing = !_conn.UseAllMonitors;
+            _rdp.AdvancedSettings9.UseMultimon = _conn.UseAllMonitors;
             _rdp.AdvancedSettings9.EnableCredSspSupport = true;
             _rdp.AdvancedSettings9.AuthenticationLevel = 0; // warn, don't block, on cert mismatch
 

@@ -12,11 +12,12 @@ final class EditDialog: NSObject {
     private let screenPopup = NSPopUpButton()
     private let widthField = NSTextField()
     private let heightField = NSTextField()
+    private let multimon = NSButton(checkboxWithTitle: "Use all monitors", target: nil, action: nil)
 
     init(connection: Connection, isNew: Bool) {
         self.connection = connection
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 440, height: 380),
+            contentRect: NSRect(x: 0, y: 0, width: 440, height: 412),
             styleMask: [.titled], backing: .buffered, defer: false)
         super.init()
 
@@ -30,6 +31,7 @@ final class EditDialog: NSObject {
         screenPopup.selectItem(at: connection.screen.mode == "fixed" ? 1 : 0)
         widthField.stringValue = String(connection.screen.width)
         heightField.stringValue = String(connection.screen.height)
+        multimon.state = connection.useAllMonitors ? .on : .off
 
         setWidth(nameField, 250)
         setWidth(hostField, 250)
@@ -46,6 +48,7 @@ final class EditDialog: NSObject {
             [label("Screen"), screenPopup],
             [label("Width"), widthField],
             [label("Height"), heightField],
+            [label("Monitors"), multimon],
         ])
         grid.rowSpacing = 8
         grid.columnSpacing = 10
@@ -90,6 +93,7 @@ final class EditDialog: NSObject {
         connection.screen.mode = screenPopup.indexOfSelectedItem == 1 ? "fixed" : "fit"
         connection.screen.width = Int(widthField.stringValue) ?? 1280
         connection.screen.height = Int(heightField.stringValue) ?? 800
+        connection.useAllMonitors = (multimon.state == .on)
         return connection
     }
 

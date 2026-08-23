@@ -9,6 +9,12 @@ namespace SimpleRDP.UI;
 public class MainForm : Form
 {
     private readonly ConnectionStore _store = new();
+    private readonly TextBox _search = new()
+    {
+        Dock = DockStyle.Fill,
+        PlaceholderText = "Search…",
+        Margin = new Padding(6, 4, 6, 4)
+    };
     private readonly ListBox _list = new()
     {
         Dock = DockStyle.Fill,
@@ -42,10 +48,11 @@ public class MainForm : Form
         _split = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel1 };
 
         // ---- sidebar ----
-        var side = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 };
-        side.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
-        side.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        side.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+        var side = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4 };
+        side.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));  // header
+        side.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));  // search
+        side.RowStyles.Add(new RowStyle(SizeType.Percent, 100));  // list
+        side.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));  // buttons
 
         var header = new Label
         {
@@ -56,6 +63,8 @@ public class MainForm : Form
             Font = new Font(Font, FontStyle.Bold)
         };
 
+        _search.TextChanged += (_, _) => RefreshList();
+
         _list.DoubleClick += (_, _) => ConnectSelected();
         _list.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) ConnectSelected(); };
         _list.DrawItem += List_DrawItem;
@@ -64,13 +73,15 @@ public class MainForm : Form
 
         var bar = new FlowLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(4) };
         bar.Controls.Add(MakeButton("New", (_, _) => NewConnection()));
+        bar.Controls.Add(MakeButton("Import", (_, _) => ImportRdp()));
         bar.Controls.Add(MakeButton("Edit", (_, _) => EditSelected()));
         bar.Controls.Add(MakeButton("Delete", (_, _) => DeleteSelected()));
         bar.Controls.Add(MakeButton("Connect", (_, _) => ConnectSelected()));
 
         side.Controls.Add(header, 0, 0);
-        side.Controls.Add(_list, 0, 1);
-        side.Controls.Add(bar, 0, 2);
+        side.Controls.Add(_search, 0, 1);
+        side.Controls.Add(_list, 0, 2);
+        side.Controls.Add(bar, 0, 3);
         _split.Panel1.Controls.Add(side);
 
         // ---- sessions ----
@@ -115,10 +126,12 @@ public class MainForm : Form
     private void RefreshList()
     {
         var selectedId = (_list.SelectedItem as Connection)?.Id;
+        var q = _search.Text.Trim();
 
         _list.BeginUpdate();
         _list.Items.Clear();
-        foreach (var c in _store.Connections) _list.Items.Add(c);
+        foreach (var c in _store.Connections)
+            if (Matches(c, q)) _list.Items.Add(c);
         _list.EndUpdate();
 
         if (selectedId == null) return;
@@ -130,6 +143,14 @@ public class MainForm : Form
                 break;
             }
         }
+    }
+
+    private static bool Matches(Connection c, string q)
+    {
+        if (q.Length == 0) return true;
+        return c.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || c.Host.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || c.Username.Contains(q, StringComparison.OrdinalIgnoreCase);
     }
 
     // ---- sidebar drawing ----
@@ -193,7 +214,6 @@ public class MainForm : Form
 
         g.SmoothingMode = SmoothingMode.AntiAlias;
 
-        // status dot
         var state = (page.Tag as RdpSessionControl)?.State ?? RdpSessionState.Connecting;
         var dot = state switch
         {
@@ -206,7 +226,6 @@ public class MainForm : Form
         var dy = rect.Top + (rect.Height - d) / 2;
         using (var db = new SolidBrush(dot)) g.FillEllipse(db, dx, dy, d, d);
 
-        // close 'x'
         var xr = CloseGlyphRect(rect);
         using (var pen = new Pen(Color.Gray, 1.6f))
         {
@@ -215,7 +234,6 @@ public class MainForm : Form
             g.DrawLine(pen, xi.Right, xi.Top, xi.Left, xi.Bottom);
         }
 
-        // label
         var textRect = Rectangle.FromLTRB(dx + d + 6, rect.Top, xr.Left - 4, rect.Bottom);
         TextRenderer.DrawText(g, page.Text, Font, textRect,
             selected ? SystemColors.ControlText : SystemColors.ControlDarkDark,
@@ -260,6 +278,33 @@ public class MainForm : Form
         if (c == null) return;
         _store.Add(c);
         RefreshList();
+    }
+
+    private void ImportRdp()
+    {
+        using var dlg = new OpenFileDialog
+        {
+            Title = "Import .rdp files",
+            Filter = "Remote Desktop files (*.rdp)|*.rdp|All files (*.*)|*.*",
+            Multiselect = true
+        };
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+        var imported = 0;
+        foreach (var path in dlg.FileNames)
+        {
+            try
+            {
+                _store.Add(RdpFileImporter.Parse(path));
+                imported++;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"Couldn't import {Path.GetFileName(path)}:\n{ex.Message}",
+                    "SimpleRDP", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+        if (imported > 0) RefreshList();
     }
 
     private void EditSelected()

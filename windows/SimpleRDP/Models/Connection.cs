@@ -17,6 +17,9 @@ public class Connection
     public ScreenSettings Screen { get; set; } = new();
     public bool FullScreen { get; set; }
 
+    /// <summary>Span the session across all monitors (RDP multimon).</summary>
+    public bool UseAllMonitors { get; set; }
+
     /// <summary>
     /// Base64 DPAPI blob encrypted for the current Windows user. Optional.
     /// The macOS client preserves this field on round-trip but cannot read it.
@@ -34,6 +37,7 @@ public class Connection
         Port = Port,
         Username = Username,
         FullScreen = FullScreen,
+        UseAllMonitors = UseAllMonitors,
         PasswordEnc = PasswordEnc,
         Screen = new ScreenSettings { Mode = Screen.Mode, Width = Screen.Width, Height = Screen.Height }
     };

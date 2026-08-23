@@ -8,7 +8,8 @@
       "port": 3389,
       "username": "administrator",
       "screen": { "mode": "fit", "width": 1920, "height": 1080 },
-      "fullScreen": false
+      "fullScreen": false,
+      "useAllMonitors": false
     },
     {
       "id": "9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c40",
@@ -17,7 +18,8 @@
       "port": 3389,
       "username": "",
       "screen": { "mode": "fixed", "width": 1280, "height": 800 },
-      "fullScreen": false
+      "fullScreen": false,
+      "useAllMonitors": false
     }
   ]
 }

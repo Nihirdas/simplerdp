@@ -3,6 +3,20 @@ import AppKit
 @main
 struct SimpleRDPMain {
     static func main() {
+        // Diagnostic: `SimpleRDP --parse-rdp <file>` prints the parsed connection and exits.
+        if let idx = CommandLine.arguments.firstIndex(of: "--parse-rdp"),
+           idx + 1 < CommandLine.arguments.count {
+            let url = URL(fileURLWithPath: CommandLine.arguments[idx + 1])
+            if let c = RdpImport.parse(contentsOf: url) {
+                let enc = JSONEncoder()
+                enc.outputFormatting = [.prettyPrinted, .sortedKeys]
+                print(String(data: (try? enc.encode(c)) ?? Data(), encoding: .utf8) ?? "encode failed")
+            } else {
+                print("parse failed")
+            }
+            return
+        }
+
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate

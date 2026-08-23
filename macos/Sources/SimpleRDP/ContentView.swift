@@ -1,8 +1,12 @@
 import AppKit
+import UniformTypeIdentifiers
 
-/// Main window: a sidebar list of connections + a detail pane with Connect.
+/// Main window: a searchable sidebar list of connections + a detail pane with Connect.
 final class MainWindowController: NSWindowController, NSTableViewDataSource, NSTableViewDelegate {
     private let store = ConnectionStore()
+    private var rows: [Connection] = []   // currently displayed (filtered) subset
+
+    private let searchField = NSSearchField()
     private let table = NSTableView()
 
     private let detailTitle = NSTextField(labelWithString: "")
@@ -21,8 +25,7 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
 
         buildUI()
         store.load()
-        table.reloadData()
-        updateDetail()
+        reload(select: nil)
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not used") }
@@ -32,7 +35,6 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
     private func buildUI() {
         guard let content = window?.contentView else { return }
 
-        // table
         let col = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("main"))
         col.title = "Connections"
         table.addTableColumn(col)
@@ -50,8 +52,16 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
         scroll.hasVerticalScroller = true
         scroll.translatesAutoresizingMaskIntoConstraints = false
 
+        searchField.translatesAutoresizingMaskIntoConstraints = false
+        searchField.placeholderString = "Search"
+        searchField.target = self
+        searchField.action = #selector(searchChanged)
+        searchField.sendsWholeSearchString = false
+        searchField.sendsSearchStringImmediately = true
+
         let bar = NSStackView(views: [
             button("New", #selector(newConnection)),
+            button("Import", #selector(importRdp)),
             button("Edit", #selector(editSelected)),
             button("Delete", #selector(deleteSelected)),
             button("Connect", #selector(connectSelected)),
@@ -63,12 +73,18 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
 
         let left = NSView()
         left.translatesAutoresizingMaskIntoConstraints = false
+        left.addSubview(searchField)
         left.addSubview(scroll)
         left.addSubview(bar)
         NSLayoutConstraint.activate([
-            scroll.topAnchor.constraint(equalTo: left.topAnchor),
+            searchField.topAnchor.constraint(equalTo: left.topAnchor, constant: 6),
+            searchField.leadingAnchor.constraint(equalTo: left.leadingAnchor, constant: 6),
+            searchField.trailingAnchor.constraint(equalTo: left.trailingAnchor, constant: -6),
+
+            scroll.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 6),
             scroll.leadingAnchor.constraint(equalTo: left.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: left.trailingAnchor),
+
             bar.topAnchor.constraint(equalTo: scroll.bottomAnchor, constant: 6),
             bar.leadingAnchor.constraint(equalTo: left.leadingAnchor, constant: 6),
             bar.trailingAnchor.constraint(equalTo: left.trailingAnchor, constant: -6),
@@ -107,7 +123,6 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
             detail.trailingAnchor.constraint(lessThanOrEqualTo: right.trailingAnchor, constant: -20),
         ])
 
-        // split
         let split = NSSplitView()
         split.isVertical = true
         split.dividerStyle = .thin
@@ -137,10 +152,10 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
 
     // MARK: - table data
 
-    func numberOfRows(in tableView: NSTableView) -> Int { store.connections.count }
+    func numberOfRows(in tableView: NSTableView) -> Int { rows.count }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        let c = store.connections[row]
+        let c = rows[row]
         let name = NSTextField(labelWithString: c.displayName)
         name.font = .boldSystemFont(ofSize: 13)
         let sub = NSTextField(labelWithString: c.subtitle)
@@ -163,13 +178,27 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
 
     private func selectedConnection() -> Connection? {
         let row = table.selectedRow
-        guard row >= 0, row < store.connections.count else { return nil }
-        return store.connections[row]
+        guard row >= 0, row < rows.count else { return nil }
+        return rows[row]
+    }
+
+    private func applyFilter() {
+        let q = searchField.stringValue.trimmingCharacters(in: .whitespaces).lowercased()
+        if q.isEmpty {
+            rows = store.connections
+        } else {
+            rows = store.connections.filter {
+                $0.displayName.lowercased().contains(q)
+                    || $0.host.lowercased().contains(q)
+                    || $0.username.lowercased().contains(q)
+            }
+        }
     }
 
     private func reload(select id: String?) {
+        applyFilter()
         table.reloadData()
-        if let id, let idx = store.connections.firstIndex(where: { $0.id == id }) {
+        if let id, let idx = rows.firstIndex(where: { $0.id == id }) {
             table.selectRowIndexes(IndexSet(integer: idx), byExtendingSelection: false)
         }
         updateDetail()
@@ -189,11 +218,33 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
 
     // MARK: - actions
 
+    @objc private func searchChanged() {
+        reload(select: selectedConnection()?.id)
+    }
+
     @objc private func newConnection() {
         if let c = EditDialog(connection: Connection(), isNew: true).run() {
             store.add(c)
             reload(select: c.id)
         }
+    }
+
+    @objc private func importRdp() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        if let rdp = UTType(filenameExtension: "rdp") { panel.allowedContentTypes = [rdp] }
+        guard panel.runModal() == .OK else { return }
+
+        var last: String?
+        for url in panel.urls {
+            if let c = RdpImport.parse(contentsOf: url) {
+                store.add(c)
+                last = c.id
+            }
+        }
+        reload(select: last)
     }
 
     @objc private func editSelected() {

@@ -56,8 +56,11 @@ RDP Client Control"** (latest version), then build again.
 - [x] Remember password, encrypted with Windows DPAPI
 - [x] Reconnect + per-tab status dots and a close button (Windows)
 - [x] macOS client — manage connections + connect via FreeRDP (own window per session)
+- [x] Import from `.rdp` files (both clients)
+- [x] Search / filter the connection list (both clients)
+- [x] Multi-monitor ("use all monitors") option
 - [ ] Embed FreeRDP in macOS tabs (match the Windows in-app experience)
-- [ ] Import from `.rdp` files
+- [ ] Connection groups / folders
 
 ## License
 

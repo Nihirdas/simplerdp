@@ -15,6 +15,7 @@ struct Connection: Codable, Identifiable, Hashable {
     var username: String = ""
     var screen: ScreenSettings = .init()
     var fullScreen: Bool = false
+    var useAllMonitors: Bool = false
 
     /// Windows DPAPI blob. Preserved on round-trip but not usable on macOS.
     var passwordEnc: String? = nil
