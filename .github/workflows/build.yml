@@ -1,0 +1,78 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # MSBuild from Visual Studio is required: the RDP ActiveX control (mstscax)
+      # is referenced via a COMReference with WrapperTool=aximp, which the plain
+      # `dotnet build` CLI cannot generate but VS MSBuild can.
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build
+        working-directory: windows
+        run: msbuild SimpleRDP/SimpleRDP.csproj /restore /p:Configuration=Release /p:Platform=x64
+
+      - name: Package
+        working-directory: windows
+        shell: pwsh
+        run: |
+          $out = "SimpleRDP/bin/x64/Release/net8.0-windows"
+          if (!(Test-Path $out)) { throw "build output not found at $out" }
+          Compress-Archive -Path "$out/*" -DestinationPath "SimpleRDP-windows-x64.zip" -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SimpleRDP-windows-x64
+          path: windows/SimpleRDP-windows-x64.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: windows/SimpleRDP-windows-x64.zip
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        working-directory: macos
+        run: swift build -c release
+
+      - name: Package .app
+        working-directory: macos
+        run: |
+          APP="SimpleRDP.app"
+          mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+          cp .build/release/SimpleRDP "$APP/Contents/MacOS/SimpleRDP"
+          cp Info.plist "$APP/Contents/Info.plist"
+          zip -r -q SimpleRDP-macos.zip "$APP"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SimpleRDP-macos
+          path: macos/SimpleRDP-macos.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: macos/SimpleRDP-macos.zip
