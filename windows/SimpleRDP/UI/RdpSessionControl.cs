@@ -69,7 +69,9 @@ public class RdpSessionControl : UserControl
             if (!string.IsNullOrEmpty(_password)) _rdp.AdvancedSettings9.ClearTextPassword = _password;
 
             _rdp.AdvancedSettings9.SmartSizing = !_conn.UseAllMonitors;
-            _rdp.AdvancedSettings9.UseMultimon = _conn.UseAllMonitors;
+            // UseMultimon lives on IMsRdpClientNonScriptable5, reached via the OCX.
+            if (_conn.UseAllMonitors && _rdp.GetOcx() is MSTSCLib.IMsRdpClientNonScriptable5 ocx)
+                ocx.UseMultimon = true;
             _rdp.AdvancedSettings9.EnableCredSspSupport = true;
             _rdp.AdvancedSettings9.AuthenticationLevel = 0; // warn, don't block, on cert mismatch
 
