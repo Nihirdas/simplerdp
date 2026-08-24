@@ -435,6 +435,11 @@ public class MainForm : Form
         if (_tabs.SelectedTab?.Tag is RdpSessionControl s) s.Connect();
     }
 
+    private void CloseCurrentTab()
+    {
+        if (_tabs.SelectedTab != null) RemoveTab(_tabs.SelectedTab);
+    }
+
     private static bool TryColor(string hex, out Color color)
     {
         try { color = ColorTranslator.FromHtml(hex); return true; }
