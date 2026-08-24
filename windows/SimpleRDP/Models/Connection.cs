@@ -18,6 +18,9 @@ public class Connection
     /// <summary>Optional folder/group name for the sidebar. Empty = ungrouped.</summary>
     public string Group { get; set; } = string.Empty;
 
+    /// <summary>Optional accent color as #RRGGBB. Empty = none.</summary>
+    public string Color { get; set; } = string.Empty;
+
     public ScreenSettings Screen { get; set; } = new();
     public bool FullScreen { get; set; }
 
@@ -41,6 +44,7 @@ public class Connection
         Port = Port,
         Username = Username,
         Group = Group,
+        Color = Color,
         FullScreen = FullScreen,
         UseAllMonitors = UseAllMonitors,
         PasswordEnc = PasswordEnc,

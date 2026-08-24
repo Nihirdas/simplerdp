@@ -97,6 +97,12 @@ public class MainForm : Form
         _tabs.DrawItem += Tabs_DrawItem;
         _tabs.MouseDown += Tabs_MouseDown;
         _tabs.MouseUp += Tabs_MouseUp;
+
+        var tabMenu = new ContextMenuStrip();
+        tabMenu.Items.Add("Reconnect", null, (_, _) => ReconnectCurrentTab());
+        tabMenu.Items.Add("Close tab", null, (_, _) => CloseCurrentTab());
+        _tabs.ContextMenuStrip = tabMenu;
+
         _split.Panel2.Controls.Add(_tabs);
 
         Controls.Add(_split);
@@ -108,6 +114,9 @@ public class MainForm : Form
         menu.Items.Add("Connect", null, (_, _) => ConnectSelected());
         menu.Items.Add("Edit", null, (_, _) => EditSelected());
         menu.Items.Add("Delete", null, (_, _) => DeleteSelected());
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Move up", null, (_, _) => MoveSelected(-1));
+        menu.Items.Add("Move down", null, (_, _) => MoveSelected(+1));
         menu.Items.Add(new ToolStripSeparator());
         _miClearPw = new ToolStripMenuItem("Clear saved password", null, (_, _) => ClearSavedPassword());
         menu.Items.Add(_miClearPw);
@@ -230,6 +239,11 @@ public class MainForm : Form
         if (item is not Connection c) return;
 
         e.DrawBackground();
+
+        if (!string.IsNullOrEmpty(c.Color) && TryColor(c.Color, out var accent))
+            using (var ab = new SolidBrush(accent))
+                g.FillRectangle(ab, r.Left, r.Top + 4, 4, r.Height - 8);
+
         var selected = (e.State & DrawItemState.Selected) != 0;
         var nameColor = selected ? SystemColors.HighlightText : SystemColors.ControlText;
         var subColor = selected ? SystemColors.HighlightText : Color.Gray;
@@ -305,6 +319,11 @@ public class MainForm : Form
         TextRenderer.DrawText(g, page.Text, Font, textRect,
             selected ? SystemColors.ControlText : SystemColors.ControlDarkDark,
             TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+
+        var conn = (page.Tag as RdpSessionControl)?.Conn;
+        if (conn != null && !string.IsNullOrEmpty(conn.Color) && TryColor(conn.Color, out var tabAccent))
+            using (var sb = new SolidBrush(tabAccent))
+                g.FillRectangle(sb, rect.Left, rect.Bottom - 3, rect.Width, 3);
     }
 
     private static Rectangle CloseGlyphRect(Rectangle tab)
@@ -402,6 +421,24 @@ public class MainForm : Form
         sel.PasswordEnc = null;
         _store.Update(sel);
         RefreshList();
+    }
+
+    private void MoveSelected(int dir)
+    {
+        if (_list.SelectedItem is not Connection sel) return;
+        var moved = dir < 0 ? _store.MoveUp(sel) : _store.MoveDown(sel);
+        if (moved) RefreshList();
+    }
+
+    private void ReconnectCurrentTab()
+    {
+        if (_tabs.SelectedTab?.Tag is RdpSessionControl s) s.Connect();
+    }
+
+    private static bool TryColor(string hex, out Color color)
+    {
+        try { color = ColorTranslator.FromHtml(hex); return true; }
+        catch { color = Color.Empty; return false; }
     }
 
     private void ConnectSelected()

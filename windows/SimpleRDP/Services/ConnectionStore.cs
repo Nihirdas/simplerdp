@@ -60,4 +60,25 @@ public class ConnectionStore
         _data.Connections.RemoveAll(x => x.Id == c.Id);
         Save();
     }
+
+    public bool MoveUp(Connection c) => Move(c, -1);
+    public bool MoveDown(Connection c) => Move(c, +1);
+
+    /// <summary>Swaps a connection with its nearest same-group neighbour in the given direction.</summary>
+    private bool Move(Connection c, int dir)
+    {
+        var list = _data.Connections;
+        var i = list.IndexOf(c);
+        if (i < 0) return false;
+        for (var j = i + dir; j >= 0 && j < list.Count; j += dir)
+        {
+            if (string.Equals(list[j].Group, c.Group, StringComparison.OrdinalIgnoreCase))
+            {
+                (list[i], list[j]) = (list[j], list[i]);
+                Save();
+                return true;
+            }
+        }
+        return false;
+    }
 }

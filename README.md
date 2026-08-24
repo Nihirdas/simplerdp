@@ -61,6 +61,7 @@ RDP Client Control"** (latest version), then build again.
 - [x] Multi-monitor ("use all monitors") option
 - [x] Connection groups / folders
 - [x] CI builds signed-less binaries for Windows + macOS on every push
+- [x] Color labels, per-tab reconnect, and reordering connections
 - [ ] Embed FreeRDP in macOS tabs (match the Windows in-app experience)
 
 ## License

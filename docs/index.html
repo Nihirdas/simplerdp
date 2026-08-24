@@ -174,6 +174,15 @@
   @media(max-width:860px){.feat-grid{grid-template-columns:1fr 1fr}}
   @media(max-width:560px){.feat-grid{grid-template-columns:1fr}}
 
+  /* migrate callout */
+  .migrate{display:flex;gap:20px;align-items:center;background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--border);border-radius:16px;padding:26px 28px}
+  .migrate-ico{width:56px;height:56px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:14px;background:rgba(76,194,255,.1);border:1px solid rgba(76,194,255,.2)}
+  .migrate h3{font-size:19px;font-weight:700;letter-spacing:-.01em;margin-bottom:6px}
+  .migrate p{color:var(--muted);font-size:15px;margin-bottom:12px}
+  .migrate .chips{display:flex;gap:8px;flex-wrap:wrap}
+  .migrate .chips span{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--bg-2);border:1px solid var(--border-soft);padding:4px 10px;border-radius:999px}
+  @media(max-width:620px){.migrate{flex-direction:column;text-align:center} .migrate .chips{justify-content:center}}
+
   /* steps */
   .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:44px;counter-reset:s}
   .step{position:relative;padding-top:8px}
@@ -343,6 +352,19 @@
         <div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4cc2ff" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m0 8v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3m0-8V5a2 2 0 0 0-2-2h-3"/></svg></div>
         <h3>Free &amp; open source</h3>
         <p>MIT licensed. Read it, build it, change it. No seats, no trial, no upsell, and no server to run.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <div class="migrate">
+      <div class="migrate-ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#4cc2ff" stroke-width="2"><path d="M12 3v10m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></div>
+      <div>
+        <h3>Coming from RDCMan or mRemoteNG?</h3>
+        <p>Import your existing connections — folders and all — in one click. Your groups come across intact, so you're up and running in seconds.</p>
+        <div class="chips"><span>.rdp</span><span>RDCMan .rdg</span><span>mRemoteNG XML</span></div>
       </div>
     </div>
   </div>

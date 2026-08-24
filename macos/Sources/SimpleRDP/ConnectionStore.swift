@@ -40,4 +40,21 @@ final class ConnectionStore {
         connections.removeAll { $0.id == c.id }
         save()
     }
+
+    func moveUp(_ c: Connection) { move(c, -1) }
+    func moveDown(_ c: Connection) { move(c, 1) }
+
+    /// Swaps a connection with its nearest same-group neighbour in the given direction.
+    private func move(_ c: Connection, _ dir: Int) {
+        guard let i = connections.firstIndex(where: { $0.id == c.id }) else { return }
+        var j = i + dir
+        while j >= 0 && j < connections.count {
+            if connections[j].group.caseInsensitiveCompare(c.group) == .orderedSame {
+                connections.swapAt(i, j)
+                save()
+                return
+            }
+            j += dir
+        }
+    }
 }

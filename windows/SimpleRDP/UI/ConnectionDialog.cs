@@ -13,11 +13,13 @@ public class ConnectionDialog : Form
     private readonly NumericUpDown _port = new() { Minimum = 1, Maximum = 65535, Value = 3389 };
     private readonly TextBox _user = new();
     private readonly ComboBox _group = new() { DropDownStyle = ComboBoxStyle.DropDown };
+    private readonly Panel _colorPreview = new() { Width = 26, Height = 20, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(0, 4, 8, 0) };
     private readonly ComboBox _mode = new() { DropDownStyle = ComboBoxStyle.DropDownList };
     private readonly NumericUpDown _width = new() { Minimum = 640, Maximum = 7680, Value = 1280, Increment = 10 };
     private readonly NumericUpDown _height = new() { Minimum = 480, Maximum = 4320, Value = 800, Increment = 10 };
     private readonly CheckBox _multimon = new() { Text = "Use all monitors", Dock = DockStyle.Fill };
 
+    private string _colorHex = string.Empty;
     private readonly Connection _result;
 
     private ConnectionDialog(Connection? existing, IEnumerable<string> groups)
@@ -29,7 +31,7 @@ public class ConnectionDialog : Form
         StartPosition = FormStartPosition.CenterParent;
         MaximizeBox = false;
         MinimizeBox = false;
-        ClientSize = new Size(400, 384);
+        ClientSize = new Size(400, 416);
 
         _mode.Items.AddRange(new object[] { "Fit to window", "Fixed size" });
         _group.Items.AddRange(groups.ToArray());
@@ -43,11 +45,31 @@ public class ConnectionDialog : Form
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
+        // color picker
+        var colorPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false };
+        var chooseBtn = new Button { Text = "Choose…", AutoSize = true };
+        chooseBtn.Click += (_, _) =>
+        {
+            using var cd = new ColorDialog();
+            if (TryColor(_colorHex, out var current)) cd.Color = current;
+            if (cd.ShowDialog(this) == DialogResult.OK)
+            {
+                _colorHex = $"#{cd.Color.R:X2}{cd.Color.G:X2}{cd.Color.B:X2}";
+                UpdateColorPreview();
+            }
+        };
+        var noneBtn = new Button { Text = "None", AutoSize = true };
+        noneBtn.Click += (_, _) => { _colorHex = string.Empty; UpdateColorPreview(); };
+        colorPanel.Controls.Add(_colorPreview);
+        colorPanel.Controls.Add(chooseBtn);
+        colorPanel.Controls.Add(noneBtn);
+
         AddRow(layout, "Name", _name);
         AddRow(layout, "Host / IP", _host);
         AddRow(layout, "Port", _port);
         AddRow(layout, "Username", _user);
         AddRow(layout, "Group", _group);
+        AddRow(layout, "Color", colorPanel);
         AddRow(layout, "Screen", _mode);
         AddRow(layout, "Width", _width);
         AddRow(layout, "Height", _height);
@@ -59,6 +81,8 @@ public class ConnectionDialog : Form
         _port.Value = Clamp(_result.Port, 1, 65535);
         _user.Text = _result.Username;
         _group.Text = _result.Group;
+        _colorHex = _result.Color;
+        UpdateColorPreview();
         _mode.SelectedIndex = _result.Screen.Mode == "fixed" ? 1 : 0;
         _width.Value = Clamp(_result.Screen.Width, 640, 7680);
         _height.Value = Clamp(_result.Screen.Height, 480, 4320);
@@ -88,6 +112,20 @@ public class ConnectionDialog : Form
 
     private static decimal Clamp(int v, int lo, int hi) => Math.Min(Math.Max(v, lo), hi);
 
+    private static bool TryColor(string hex, out Color color)
+    {
+        if (!string.IsNullOrEmpty(hex))
+        {
+            try { color = ColorTranslator.FromHtml(hex); return true; }
+            catch { /* fall through */ }
+        }
+        color = Color.Empty;
+        return false;
+    }
+
+    private void UpdateColorPreview()
+        => _colorPreview.BackColor = TryColor(_colorHex, out var c) ? c : SystemColors.ControlDark;
+
     private void UpdateSizeEnabled()
     {
         var fixedMode = _mode.SelectedIndex == 1;
@@ -112,6 +150,7 @@ public class ConnectionDialog : Form
         _result.Port = (int)_port.Value;
         _result.Username = _user.Text.Trim();
         _result.Group = _group.Text.Trim();
+        _result.Color = _colorHex;
         _result.Screen.Mode = _mode.SelectedIndex == 1 ? "fixed" : "fit";
         _result.Screen.Width = (int)_width.Value;
         _result.Screen.Height = (int)_height.Value;

@@ -52,6 +52,7 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
         table.delegate = self
         table.target = self
         table.doubleAction = #selector(connectSelected)
+        table.menu = buildRowMenu()
 
         let scroll = NSScrollView()
         scroll.documentView = table
@@ -156,6 +157,19 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
         return b
     }
 
+    private func buildRowMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(withTitle: "Connect", action: #selector(menuConnect), keyEquivalent: "")
+        menu.addItem(withTitle: "Edit", action: #selector(menuEdit), keyEquivalent: "")
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Move Up", action: #selector(menuMoveUp), keyEquivalent: "")
+        menu.addItem(withTitle: "Move Down", action: #selector(menuMoveDown), keyEquivalent: "")
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Delete", action: #selector(menuDelete), keyEquivalent: "")
+        menu.items.forEach { $0.target = self }
+        return menu
+    }
+
     // MARK: - table data
 
     func numberOfRows(in tableView: NSTableView) -> Int { displayRows.count }
@@ -193,12 +207,29 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
             sub.font = .systemFont(ofSize: 11)
             sub.textColor = .secondaryLabelColor
 
-            let stack = NSStackView(views: [name, sub])
-            stack.orientation = .vertical
-            stack.alignment = .leading
-            stack.spacing = 2
-            stack.edgeInsets = NSEdgeInsets(top: 4, left: 6, bottom: 4, right: 6)
-            return stack
+            let textStack = NSStackView(views: [name, sub])
+            textStack.orientation = .vertical
+            textStack.alignment = .leading
+            textStack.spacing = 2
+
+            let row = NSStackView()
+            row.orientation = .horizontal
+            row.alignment = .centerY
+            row.spacing = 8
+            row.edgeInsets = NSEdgeInsets(top: 4, left: 6, bottom: 4, right: 6)
+
+            if !c.color.isEmpty, let col = NSColor(hex: c.color) {
+                let dot = NSView()
+                dot.wantsLayer = true
+                dot.layer?.backgroundColor = col.cgColor
+                dot.layer?.cornerRadius = 3
+                dot.translatesAutoresizingMaskIntoConstraints = false
+                dot.widthAnchor.constraint(equalToConstant: 6).isActive = true
+                dot.heightAnchor.constraint(equalToConstant: 24).isActive = true
+                row.addArrangedSubview(dot)
+            }
+            row.addArrangedSubview(textStack)
+            return row
         }
     }
 
@@ -209,7 +240,14 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
     // MARK: - helpers
 
     private func selectedConnection() -> Connection? {
-        let row = table.selectedRow
+        connection(at: table.selectedRow)
+    }
+
+    private func clickedConnection() -> Connection? {
+        connection(at: table.clickedRow)
+    }
+
+    private func connection(at row: Int) -> Connection? {
         guard row >= 0, row < displayRows.count else { return nil }
         if case .connection(let c) = displayRows[row] { return c }
         return nil
@@ -231,7 +269,6 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
         }
         let filtered = store.connections.filter(matches)
 
-        // Flat list while searching.
         if !q.isEmpty {
             displayRows = filtered.map { .connection($0) }
             return
@@ -284,11 +321,39 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
         }
     }
 
-    // MARK: - actions
+    // MARK: - operations
 
-    @objc private func searchChanged() {
-        reload(select: selectedConnection()?.id)
+    private func connect(_ c: Connection) {
+        guard let password = PasswordDialog.run(for: c) else { return }
+        if let err = RDPLauncher.launch(c, password: password) {
+            let alert = NSAlert()
+            alert.messageText = "Connect"
+            alert.informativeText = err
+            alert.runModal()
+        }
     }
+
+    private func edit(_ c: Connection) {
+        if let updated = EditDialog(connection: c, isNew: false, groups: existingGroups()).run() {
+            store.update(updated)
+            reload(select: updated.id)
+        }
+    }
+
+    private func delete(_ c: Connection) {
+        let alert = NSAlert()
+        alert.messageText = "Delete \"\(c.displayName)\"?"
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        if alert.runModal() == .alertFirstButtonReturn {
+            store.remove(c)
+            reload(select: nil)
+        }
+    }
+
+    // MARK: - actions (toolbar buttons act on the selected row)
+
+    @objc private func searchChanged() { reload(select: selectedConnection()?.id) }
 
     @objc private func newConnection() {
         if let c = EditDialog(connection: Connection(), isNew: true, groups: existingGroups()).run() {
@@ -315,34 +380,15 @@ final class MainWindowController: NSWindowController, NSTableViewDataSource, NST
         reload(select: last)
     }
 
-    @objc private func editSelected() {
-        guard let c = selectedConnection() else { return }
-        if let updated = EditDialog(connection: c, isNew: false, groups: existingGroups()).run() {
-            store.update(updated)
-            reload(select: updated.id)
-        }
-    }
+    @objc private func connectSelected() { if let c = selectedConnection() { connect(c) } }
+    @objc private func editSelected() { if let c = selectedConnection() { edit(c) } }
+    @objc private func deleteSelected() { if let c = selectedConnection() { delete(c) } }
 
-    @objc private func deleteSelected() {
-        guard let c = selectedConnection() else { return }
-        let alert = NSAlert()
-        alert.messageText = "Delete \"\(c.displayName)\"?"
-        alert.addButton(withTitle: "Delete")
-        alert.addButton(withTitle: "Cancel")
-        if alert.runModal() == .alertFirstButtonReturn {
-            store.remove(c)
-            reload(select: nil)
-        }
-    }
+    // MARK: - actions (context menu acts on the right-clicked row)
 
-    @objc private func connectSelected() {
-        guard let c = selectedConnection() else { return }
-        guard let password = PasswordDialog.run(for: c) else { return }
-        if let err = RDPLauncher.launch(c, password: password) {
-            let alert = NSAlert()
-            alert.messageText = "Connect"
-            alert.informativeText = err
-            alert.runModal()
-        }
-    }
+    @objc private func menuConnect() { if let c = clickedConnection() { connect(c) } }
+    @objc private func menuEdit() { if let c = clickedConnection() { edit(c) } }
+    @objc private func menuDelete() { if let c = clickedConnection() { delete(c) } }
+    @objc private func menuMoveUp() { if let c = clickedConnection() { store.moveUp(c); reload(select: c.id) } }
+    @objc private func menuMoveDown() { if let c = clickedConnection() { store.moveDown(c); reload(select: c.id) } }
 }

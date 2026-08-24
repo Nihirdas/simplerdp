@@ -8,6 +8,7 @@
       "port": 3389,
       "username": "administrator",
       "group": "Production",
+      "color": "#e11d48",
       "screen": { "mode": "fit", "width": 1920, "height": 1080 },
       "fullScreen": false,
       "useAllMonitors": false
@@ -19,6 +20,7 @@
       "port": 3389,
       "username": "",
       "group": "",
+      "color": "",
       "screen": { "mode": "fixed", "width": 1280, "height": 800 },
       "fullScreen": false,
       "useAllMonitors": false

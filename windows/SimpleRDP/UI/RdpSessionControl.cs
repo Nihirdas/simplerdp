@@ -22,6 +22,9 @@ public class RdpSessionControl : UserControl
 
     public RdpSessionState State { get; private set; } = RdpSessionState.Connecting;
 
+    /// <summary>The connection this session was opened from (for tab styling).</summary>
+    public Connection Conn => _conn;
+
     /// <summary>Raised whenever <see cref="State"/> changes (on the UI thread).</summary>
     public event EventHandler? StateChanged;
 

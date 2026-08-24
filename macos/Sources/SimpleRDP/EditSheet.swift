@@ -10,6 +10,8 @@ final class EditDialog: NSObject {
     private let portField = NSTextField()
     private let userField = NSTextField()
     private let groupCombo = NSComboBox()
+    private let colorEnable = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+    private let colorWell = NSColorWell()
     private let screenPopup = NSPopUpButton()
     private let widthField = NSTextField()
     private let heightField = NSTextField()
@@ -18,7 +20,7 @@ final class EditDialog: NSObject {
     init(connection: Connection, isNew: Bool, groups: [String]) {
         self.connection = connection
         panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 440, height: 448),
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 484),
             styleMask: [.titled], backing: .buffered, defer: false)
         super.init()
 
@@ -38,6 +40,19 @@ final class EditDialog: NSObject {
         heightField.stringValue = String(connection.screen.height)
         multimon.state = connection.useAllMonitors ? .on : .off
 
+        if !connection.color.isEmpty, let c = NSColor(hex: connection.color) {
+            colorEnable.state = .on
+            colorWell.color = c
+        } else {
+            colorEnable.state = .off
+            colorWell.color = .systemBlue
+        }
+        let colorRow = NSStackView(views: [colorEnable, colorWell])
+        colorRow.orientation = .horizontal
+        colorRow.spacing = 8
+        colorWell.translatesAutoresizingMaskIntoConstraints = false
+        colorWell.widthAnchor.constraint(equalToConstant: 60).isActive = true
+
         setWidth(nameField, 250)
         setWidth(hostField, 250)
         setWidth(userField, 250)
@@ -52,6 +67,7 @@ final class EditDialog: NSObject {
             [label("Port"), portField],
             [label("Username"), userField],
             [label("Group"), groupCombo],
+            [label("Color"), colorRow],
             [label("Screen"), screenPopup],
             [label("Width"), widthField],
             [label("Height"), heightField],
@@ -87,7 +103,6 @@ final class EditDialog: NSObject {
         ])
     }
 
-    /// Shows the dialog modally. Returns the edited connection, or nil if cancelled.
     func run() -> Connection? {
         let response = NSApp.runModal(for: panel)
         panel.orderOut(nil)
@@ -98,6 +113,7 @@ final class EditDialog: NSObject {
         connection.port = Int(portField.stringValue) ?? 3389
         connection.username = userField.stringValue.trimmingCharacters(in: .whitespaces)
         connection.group = groupCombo.stringValue.trimmingCharacters(in: .whitespaces)
+        connection.color = colorEnable.state == .on ? colorWell.color.toHexRGB() : ""
         connection.screen.mode = screenPopup.indexOfSelectedItem == 1 ? "fixed" : "fit"
         connection.screen.width = Int(widthField.stringValue) ?? 1280
         connection.screen.height = Int(heightField.stringValue) ?? 800
@@ -142,5 +158,25 @@ enum PasswordDialog {
         alert.window.initialFirstResponder = field
 
         return alert.runModal() == .alertFirstButtonReturn ? field.stringValue : nil
+    }
+}
+
+extension NSColor {
+    convenience init?(hex: String) {
+        var s = hex.trimmingCharacters(in: .whitespaces)
+        if s.hasPrefix("#") { s.removeFirst() }
+        guard s.count == 6, let v = Int(s, radix: 16) else { return nil }
+        self.init(srgbRed: CGFloat((v >> 16) & 0xff) / 255,
+                  green: CGFloat((v >> 8) & 0xff) / 255,
+                  blue: CGFloat(v & 0xff) / 255,
+                  alpha: 1)
+    }
+
+    func toHexRGB() -> String {
+        guard let c = usingColorSpace(.sRGB) else { return "" }
+        return String(format: "#%02X%02X%02X",
+                      Int(round(c.redComponent * 255)),
+                      Int(round(c.greenComponent * 255)),
+                      Int(round(c.blueComponent * 255)))
     }
 }
